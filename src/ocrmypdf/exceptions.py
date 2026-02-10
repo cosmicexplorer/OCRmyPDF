@@ -9,6 +9,10 @@ from enum import IntEnum
 from textwrap import dedent
 
 
+class CancelRunningTasksMixin(BaseException):
+    pass
+
+
 class ExitCode(IntEnum):
     """OCRmyPDF's exit codes."""
 
@@ -78,7 +82,7 @@ class PriorOcrFoundError(ExitCodeException):
     exit_code = ExitCode.already_done_ocr
 
 
-class InputFileError(ExitCodeException):
+class InputFileError(ExitCodeException, CancelRunningTasksMixin):
     """Something is wrong with the input file."""
 
     exit_code = ExitCode.input_file
