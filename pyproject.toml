@@ -113,6 +113,7 @@ module = [
   'reportlab.*',
   'fitz',
   'libxmp.utils',
+  'uharfbuzz.*',
 ]
 ignore_missing_imports = true
 

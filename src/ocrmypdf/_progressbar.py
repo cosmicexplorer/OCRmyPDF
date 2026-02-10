@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from rich.console import Console
 from rich.progress import (
@@ -19,6 +19,7 @@ from rich.progress import (
 from rich.table import Column
 
 
+@runtime_checkable
 class ProgressBar(Protocol):
     """The protocol that OCRmyPDF expects progress bar classes to be compatible with.
 
@@ -192,6 +193,9 @@ class NullProgressBar:
         return
 
 
+assert issubclass(NullProgressBar, ProgressBar)
+
+
 class RichProgressBar:
     """Display progress bar using rich."""
 
@@ -249,3 +253,6 @@ class RichProgressBar:
             self.progress.update(self.progress_bar, advance=advance)
         else:
             self.progress.update(self.progress_bar, completed=completed)
+
+
+assert issubclass(RichProgressBar, ProgressBar)

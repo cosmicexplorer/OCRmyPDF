@@ -272,10 +272,7 @@ def cli_exception_handler(
         # code.
         return fn(options, plugin_manager)
     except KeyboardInterrupt:
-        if options.verbose >= 1:
-            log.exception("KeyboardInterrupt")
-        else:
-            log.error("KeyboardInterrupt")
+        log.exception("KeyboardInterrupt")
         return ExitCode.ctrl_c
     except ExitCodeException as e:
         e = cast(ExitCodeException, e)

@@ -8,7 +8,7 @@ from __future__ import annotations
 from pluggy import HookimplMarker as _HookimplMarker
 
 from ocrmypdf import helpers, hocrtransform, pdfa, pdfinfo
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, ExecutorBase, WorkloadKind, SharedLock
 from ocrmypdf._defaults import PROGRAM_NAME
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._options import OcrOptions, TaggedPdfMode

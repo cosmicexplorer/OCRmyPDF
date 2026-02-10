@@ -24,7 +24,7 @@ import logging
 import logging.handlers
 import signal
 import warnings
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import suppress
 from enum import Enum, auto
 from itertools import islice, repeat, takewhile, zip_longest
@@ -122,12 +122,12 @@ class LambdaExecutor(Executor):
         *,
         use_threads: bool,
         max_workers: int,
-        progress_kwargs: dict,
+        progress_kwargs: Mapping[str, Any],
         worker_initializer: Callable,
         task: Callable,
         task_arguments: Iterable,
         task_finished: Callable,
-    ):
+    ) -> None:
         if use_threads and max_workers == 1:
             with self.pbar_class(**progress_kwargs) as pbar:
                 for args in task_arguments:
