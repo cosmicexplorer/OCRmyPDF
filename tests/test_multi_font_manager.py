@@ -43,7 +43,7 @@ def has_devanagari_font(manager: MultiFontManager) -> bool:
 # Marker for tests that require CJK fonts
 requires_cjk = pytest.mark.skipif(
     "not has_cjk_font(MultiFontManager())",
-    reason="CJK font not available (not installed on system)"
+    reason="CJK font not available (not installed on system)",
 )
 
 
@@ -342,9 +342,7 @@ def test_get_all_fonts(multi_font_manager):
 class MockFontProvider:
     """Mock FontProvider for testing missing fonts."""
 
-    def __init__(
-        self, available_fonts: dict[str, FontManager], fallback: FontManager
-    ):
+    def __init__(self, available_fonts: dict[str, FontManager], fallback: FontManager):
         """Initialize mock font provider with given fonts."""
         self._fonts = available_fonts
         self._fallback = fallback

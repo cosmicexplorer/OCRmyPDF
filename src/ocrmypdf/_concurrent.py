@@ -42,6 +42,7 @@ class SharedLock(Protocol):
 
 class WorkloadKind(Enum):
     """Characterize the expected workload by frequency/urgency of data sharing."""
+
     MORE_MESSAGING = auto()
     MORE_SHARED_DATA = auto()
 
@@ -215,13 +216,17 @@ def setup_executor(plugin_manager) -> Executor:
 
 class SerialLock:
     __slots__ = ('_locked',)
+
     def __init__(self):
         self._locked = False
+
     def locked(self) -> bool:
         return self._locked
+
     def __enter__(self) -> Self:
         self._locked = True
         return self
+
     def __exit__(self, *args) -> bool | None:
         self._locked = False
 

@@ -10,6 +10,7 @@ This tests the fpdf2 renderer with various language groups:
 - CJK (Chinese Simplified/Traditional, Japanese, Korean)
 - Devanagari (Hindi, Sanskrit)
 """
+
 from __future__ import annotations
 
 import shutil
@@ -208,9 +209,9 @@ class TestArabicScript:
         for para in page.paragraphs:
             if para.language in ('ara', 'per'):
                 # Arabic paragraphs should have RTL direction
-                assert (
-                    para.direction == 'rtl'
-                ), "Arabic paragraph should have RTL direction"
+                assert para.direction == 'rtl', (
+                    "Arabic paragraph should have RTL direction"
+                )
 
 
 # =============================================================================
@@ -529,9 +530,9 @@ class TestBaselineHandling:
         for line in page.lines:
             if line.baseline:
                 # Baseline should be reasonable
-                assert (
-                    -1.0 <= line.baseline.slope <= 1.0
-                ), "Baseline slope should be reasonable"
+                assert -1.0 <= line.baseline.slope <= 1.0, (
+                    "Baseline slope should be reasonable"
+                )
 
 
 # =============================================================================
@@ -556,9 +557,9 @@ class TestFontCoverage:
         ]
 
         for sample in latin_samples:
-            assert multi_font_manager.has_all_glyphs(
-                'NotoSans-Regular', sample
-            ), f"NotoSans should cover: {sample}"
+            assert multi_font_manager.has_all_glyphs('NotoSans-Regular', sample), (
+                f"NotoSans should cover: {sample}"
+            )
 
     def test_noto_sans_arabic_coverage(self, multi_font_manager_arabic):
         """Test NotoSansArabic covers Arabic characters."""
@@ -602,9 +603,9 @@ class TestFontCoverage:
         ]
 
         for sample in cjk_samples:
-            assert multi_font_manager.has_all_glyphs(
-                'NotoSansCJK-Regular', sample
-            ), f"NotoSansCJK should cover: {sample}"
+            assert multi_font_manager.has_all_glyphs('NotoSansCJK-Regular', sample), (
+                f"NotoSansCJK should cover: {sample}"
+            )
 
 
 if __name__ == "__main__":

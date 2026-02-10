@@ -83,9 +83,9 @@ def test_redo_ocr_with_offset_mediabox(resources, outdir):
         mediabox = list(page.MediaBox)
 
         # MediaBox origin should be preserved
-        assert (
-            float(mediabox[1]) == 100.0
-        ), f"MediaBox Y origin should be preserved at 100, got {mediabox[1]}"
+        assert float(mediabox[1]) == 100.0, (
+            f"MediaBox Y origin should be preserved at 100, got {mediabox[1]}"
+        )
 
         # MediaBox should have valid dimensions
         width = float(mediabox[2]) - float(mediabox[0])
@@ -100,9 +100,9 @@ def test_redo_ocr_with_offset_mediabox(resources, outdir):
 
         # The fix ensures text operators are present and positioned correctly
         # (BT/ET mark text blocks in PDF)
-        assert (
-            b'BT' in text_content or b'/Im' in text_content
-        ), "Content should include text operators or image references"
+        assert b'BT' in text_content or b'/Im' in text_content, (
+            "Content should include text operators or image references"
+        )
 
 
 def test_strip_invisble_text():
@@ -168,7 +168,7 @@ def test_strip_invisble_text():
     nr_visible_pre = count('visible', page)
     ocrmypdf._graft.strip_invisible_text(pdf, page)
     nr_visible_post = count('visible', page)
-    assert (
-        nr_visible_pre == nr_visible_post
-    ), 'Number of visible text elements did not change'
+    assert nr_visible_pre == nr_visible_post, (
+        'Number of visible text elements did not change'
+    )
     assert count('invisible', page) == 0, 'No invisible elems left'

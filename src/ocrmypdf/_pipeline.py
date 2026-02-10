@@ -116,8 +116,7 @@ def triage_image_file(input_file: Path, output_file: Path, options: OcrOptions) 
 
         if im.mode in ('RGBA', 'LA'):
             raise UnsupportedImageFormatError(
-                "The input image has an alpha channel. Remove the alpha "
-                "channel first."
+                "The input image has an alpha channel. Remove the alpha channel first."
             )
 
         if 'iccprofile' not in im.info:

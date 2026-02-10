@@ -311,9 +311,9 @@ class OcrGrafter:
 
     def finalize(self):
         # Can have hocr OR parsed pages OR neither (no OCR), but not both
-        assert not (
-            self.fpdf2_hocr_pages and self.fpdf2_parsed_pages
-        ), "Can't have both hocr and ocrtree pages"
+        assert not (self.fpdf2_hocr_pages and self.fpdf2_parsed_pages), (
+            "Can't have both hocr and ocrtree pages"
+        )
 
         if self.fpdf2_hocr_pages:
             # Render all pages with fpdf2, then graft

@@ -160,9 +160,9 @@ def test_rotated_skew_timeout(resources, outpdf, rasterizer):
     input_file = resources / 'rotated_skew.pdf'
     in_pageinfo = PdfInfo(input_file)[0]
 
-    assert (
-        in_pageinfo.height_pixels < in_pageinfo.width_pixels
-    ), "Expected the input page to be landscape"
+    assert in_pageinfo.height_pixels < in_pageinfo.width_pixels, (
+        "Expected the input page to be landscape"
+    )
     assert in_pageinfo.rotation == 90, "Expected a rotated page"
 
     out = check_ocrmypdf(
@@ -184,9 +184,9 @@ def test_rotated_skew_timeout(resources, outpdf, rasterizer):
 
     assert out_pageinfo.rotation == 0, "Expected no page rotation for output"
 
-    assert (
-        in_pageinfo.width_pixels == h and in_pageinfo.height_pixels == w
-    ), "Expected page rotation to be baked in"
+    assert in_pageinfo.width_pixels == h and in_pageinfo.height_pixels == w, (
+        "Expected page rotation to be baked in"
+    )
 
 
 @pytest.mark.parametrize('rasterizer', ['pypdfium', 'ghostscript'])
@@ -411,16 +411,16 @@ def test_simulated_scan(outdir):
     )
 
     with pikepdf.open(outdir / 'out.pdf') as pdf:
-        assert (
-            pdf.pages[1].mediabox[2] > pdf.pages[1].mediabox[3]
-        ), "Wrong orientation: not landscape"
-        assert (
-            pdf.pages[3].mediabox[2] > pdf.pages[3].mediabox[3]
-        ), "Wrong orientation: Not landscape"
+        assert pdf.pages[1].mediabox[2] > pdf.pages[1].mediabox[3], (
+            "Wrong orientation: not landscape"
+        )
+        assert pdf.pages[3].mediabox[2] > pdf.pages[3].mediabox[3], (
+            "Wrong orientation: Not landscape"
+        )
 
-        assert (
-            pdf.pages[0].mediabox[2] < pdf.pages[0].mediabox[3]
-        ), "Wrong orientation: Not portrait"
-        assert (
-            pdf.pages[2].mediabox[2] < pdf.pages[2].mediabox[3]
-        ), "Wrong orientation: Not portrait"
+        assert pdf.pages[0].mediabox[2] < pdf.pages[0].mediabox[3], (
+            "Wrong orientation: Not portrait"
+        )
+        assert pdf.pages[2].mediabox[2] < pdf.pages[2].mediabox[3], (
+            "Wrong orientation: Not portrait"
+        )

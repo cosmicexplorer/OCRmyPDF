@@ -191,12 +191,14 @@ def add_srgb_output_intent(pdf: Pdf) -> None:
     icc_stream[Name.N] = 3  # RGB has 3 components
 
     # Create OutputIntent dictionary
-    output_intent = Dictionary({
-        '/Type': Name.OutputIntent,
-        '/S': Name('/GTS_PDFA1'),
-        '/OutputConditionIdentifier': 'sRGB',
-        '/DestOutputProfile': icc_stream,
-    })
+    output_intent = Dictionary(
+        {
+            '/Type': Name.OutputIntent,
+            '/S': Name('/GTS_PDFA1'),
+            '/OutputConditionIdentifier': 'sRGB',
+            '/DestOutputProfile': icc_stream,
+        }
+    )
 
     # Add to catalog's OutputIntents array
     if Name.OutputIntents not in pdf.Root:

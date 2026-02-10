@@ -100,9 +100,9 @@ def test_redo_ocr(resources, outpdf):
     out = check_ocrmypdf(in_, out, '--redo-ocr')
     after = PdfInfo(out, detailed_analysis=True)
     assert before[0].has_text and after[0].has_text
-    assert (
-        before[0].get_textareas() != after[0].get_textareas()
-    ), "Expected text to be different after re-OCR"
+    assert before[0].get_textareas() != after[0].get_textareas(), (
+        "Expected text to be different after re-OCR"
+    )
 
 
 def test_argsfile(resources, outdir):
@@ -768,9 +768,9 @@ def test_sidecar_pagecount(resources, outpdf):
 
     # There should a formfeed between each pair of pages, so the count of
     # formfeeds is the page count less one
-    assert (
-        ocr_text.count('\f') == num_pages - 1
-    ), "Sidecar page count does not match PDF page count"
+    assert ocr_text.count('\f') == num_pages - 1, (
+        "Sidecar page count does not match PDF page count"
+    )
 
 
 def test_sidecar_nonempty(resources, outpdf):

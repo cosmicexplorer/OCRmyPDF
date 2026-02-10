@@ -509,7 +509,8 @@ class TestFpdf2PdfRendererErrors:
     def test_invalid_ocr_class(self, multi_font_manager):
         """Test that non-page elements are rejected."""
         line = OcrElement(
-            ocr_class=OcrClass.LINE, bbox=BoundingBox(left=0, top=0, right=100, bottom=50)
+            ocr_class=OcrClass.LINE,
+            bbox=BoundingBox(left=0, top=0, right=100, bottom=50),
         )
 
         with pytest.raises(ValueError, match="ocr_page"):

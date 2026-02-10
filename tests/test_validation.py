@@ -47,10 +47,13 @@ def make_ocr_opts(input_file='a.pdf', output_file='b.pdf', **kwargs):
 
 
 def test_old_tesseract_error():
-    with patch(
-        'ocrmypdf._exec.tesseract.version',
-        return_value=TesseractVersion('4.00.00alpha'),
-    ), pytest.raises(MissingDependencyError):
+    with (
+        patch(
+            'ocrmypdf._exec.tesseract.version',
+            return_value=TesseractVersion('4.00.00alpha'),
+        ),
+        pytest.raises(MissingDependencyError),
+    ):
         vd.check_options(*make_opts_pm(pdf_renderer='sandwich', language='eng'))
 
 
@@ -59,9 +62,9 @@ def test_tesseract_not_installed(caplog):
         not_found.side_effect = FileNotFoundError('tesseract')
         with pytest.raises(MissingDependencyError, match="Could not find program"):
             vd.check_options(*make_opts_pm())
-            assert (
-                "'tesseract' could not be executed" in caplog.text
-            ), "Error message not printed"
+            assert "'tesseract' could not be executed" in caplog.text, (
+                "Error message not printed"
+            )
             assert 'install' in caplog.text, "Install advice not printed"
         not_found.assert_called()
 
@@ -87,9 +90,7 @@ def test_mutex_options():
 
 
 def test_optimizing(caplog):
-    vd.check_options(
-        *make_opts_pm(optimize=0, png_quality=18, jpeg_quality=10)
-    )
+    vd.check_options(*make_opts_pm(optimize=0, png_quality=18, jpeg_quality=10))
     assert 'will be ignored because' in caplog.text
 
 

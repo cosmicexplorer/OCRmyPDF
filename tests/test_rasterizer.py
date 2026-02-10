@@ -582,8 +582,7 @@ class TestRasterizerWithRotationAndBoxes:
                 expected = self._get_expected_size(rotation)
 
                 assert abs(gs_img.size[0] - expected[0]) <= 2, (
-                    f"GS width at {rotation}°: {gs_img.size[0]}, "
-                    f"expected {expected[0]}"
+                    f"GS width at {rotation}°: {gs_img.size[0]}, expected {expected[0]}"
                 )
                 assert abs(gs_img.size[1] - expected[1]) <= 2, (
                     f"GS height at {rotation}°: {gs_img.size[1]}, "

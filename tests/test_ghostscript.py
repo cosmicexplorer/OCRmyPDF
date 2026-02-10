@@ -176,9 +176,9 @@ def test_ghostscript_pdfa_failure(resources, outpdf, caplog):
         '--plugin',
         'tests/plugins/gs_pdfa_failure.py',
     )
-    assert (
-        exitcode == ExitCode.pdfa_conversion_failed
-    ), "Unexpected return when PDF/A fails"
+    assert exitcode == ExitCode.pdfa_conversion_failed, (
+        "Unexpected return when PDF/A fails"
+    )
 
 
 def test_ghostscript_feature_elision(resources, outpdf):
@@ -439,7 +439,9 @@ class TestGs106JpegCorruptionRepair:
                     repaired_bytes_list.append(obj.read_raw_bytes())
 
         assert len(repaired_bytes_list) == len(original_bytes_list)
-        for orig, repaired_bytes in zip(original_bytes_list, repaired_bytes_list, strict=False):
+        for orig, repaired_bytes in zip(
+            original_bytes_list, repaired_bytes_list, strict=False
+        ):
             assert orig == repaired_bytes, "Repaired bytes should match original"
 
         # Check that error/warning was logged

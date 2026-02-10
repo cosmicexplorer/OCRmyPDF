@@ -222,9 +222,7 @@ class SystemFontProvider:
                 try:
                     matches = list(font_dir.rglob(pattern))
                     if matches:
-                        log.debug(
-                            "Found system font %s at %s", font_name, matches[0]
-                        )
+                        log.debug("Found system font %s at %s", font_name, matches[0])
                         return matches[0]
                 except PermissionError:
                     # Skip directories we can't read

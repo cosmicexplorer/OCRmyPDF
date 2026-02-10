@@ -197,14 +197,14 @@ def test_optimize_off(resources, outpdf):
 def test_group3(resources):
     with pikepdf.open(resources / 'ccitt.pdf') as pdf:
         im = pdf.pages[0].Resources.XObject['/Im1']
-        assert (
-            opt.extract_image_filter(im, im.objgen[0]) is not None
-        ), "Group 4 should be allowed"
+        assert opt.extract_image_filter(im, im.objgen[0]) is not None, (
+            "Group 4 should be allowed"
+        )
 
         im.DecodeParms['/K'] = 0
-        assert (
-            opt.extract_image_filter(im, im.objgen[0]) is None
-        ), "Group 3 should be disallowed"
+        assert opt.extract_image_filter(im, im.objgen[0]) is None, (
+            "Group 3 should be disallowed"
+        )
 
 
 def test_find_formx(resources):

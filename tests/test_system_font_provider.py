@@ -103,7 +103,10 @@ class TestSystemFontProviderDirectories:
             patch.object(sys, 'platform', 'win32'),
             patch.dict(
                 'os.environ',
-                {'WINDIR': r'C:\Windows', 'LOCALAPPDATA': r'C:\Users\Test\AppData\Local'},
+                {
+                    'WINDIR': r'C:\Windows',
+                    'LOCALAPPDATA': r'C:\Users\Test\AppData\Local',
+                },
             ),
         ):
             provider._font_dirs = None  # Reset cache
@@ -113,8 +116,7 @@ class TestSystemFontProviderDirectories:
             assert len(dirs) == 2
             assert any('Windows' in d and 'Fonts' in d for d in dir_strs)
             assert any(
-                'AppData' in d and 'Local' in d and 'Fonts' in d
-                for d in dir_strs
+                'AppData' in d and 'Local' in d and 'Fonts' in d for d in dir_strs
             )
 
     def test_font_dirs_cached(self):

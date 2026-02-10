@@ -197,7 +197,7 @@ class TestFpdf2MultiPageRenderer:
         for i in range(3):
             word = OcrElement(
                 ocr_class=OcrClass.WORD,
-                text=f"Page{i+1}",
+                text=f"Page{i + 1}",
                 bbox=BoundingBox(left=100, top=100, right=200, bottom=130),
             )
             line = OcrElement(
