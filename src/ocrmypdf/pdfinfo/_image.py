@@ -7,10 +7,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from pikepdf import (
     Dictionary,

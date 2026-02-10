@@ -48,7 +48,7 @@ def check_platform() -> None:
 
 
 def check_options_languages(
-    options: OcrOptions, ocr_engine_languages: Set[str]
+    options: OcrOptions, ocr_engine_languages: list[str]
 ) -> None:
     # Check for blocked languages first, before checking if they're installed
     DENIED_LANGUAGES = {'equ', 'osd'}
@@ -64,7 +64,7 @@ def check_options_languages(
     if not ocr_engine_languages:
         return
 
-    missing_languages = set(options.languages) - ocr_engine_languages
+    missing_languages = set(options.languages) - set(ocr_engine_languages)
     if missing_languages:
         lang_text = '\n'.join(lang for lang in missing_languages)
         msg = (
@@ -133,9 +133,7 @@ def _check_plugin_options(
     plugin_manager.check_options(options=options)
 
     # Then check OCR engine language support
-    ocr_engine_languages = plugin_manager.get_ocr_engine(options=options).languages(
-        options
-    )
+    ocr_engine_languages = list(plugin_manager.get_ocr_engine(options=options).languages(options))
     check_options_languages(options, ocr_engine_languages)
 
     # Finally, run comprehensive validation using the coordinator
@@ -178,9 +176,12 @@ def create_input_file(options: OcrOptions, work_folder: Path) -> tuple[Path, str
     else:
         try:
             target = work_folder / 'origin'
-            assert isinstance(options.input_file, Path)
-            safe_symlink(options.input_file, target)
-            return target, os.fspath(options.input_file)
+            inf = options.input_file
+            if isinstance(inf, bytes):
+                inf = inf.decode('utf-8')
+            inf = Path(inf)
+            safe_symlink(inf, target)
+            return target, os.fspath(inf)
         except FileNotFoundError as e:
             msg = f"File not found - {options.input_file!r}"
             if running_in_docker():  # pragma: no cover

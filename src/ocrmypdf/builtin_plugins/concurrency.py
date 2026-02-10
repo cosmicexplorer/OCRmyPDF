@@ -253,7 +253,7 @@ class _ConcurrentExecutorBase(ExecutorBase):
         )
 
     def __enter__(self) -> Self:
-        assert isinstance(self._log_queue, Queue)
+        assert self._log_queue is not None
         assert isinstance(self._inner_executor, StdlibExecutor)
 
         assert self._listener is None
@@ -390,7 +390,7 @@ class _IPCExecutor(_ParallelismFrameworkExecutor[
 ]):
     @staticmethod
     def _queue_type() -> QueueGenerator['multiprocessing.queues.Queue']:
-        return multiprocessing.queues.Queue # type: ignore[return-value]
+        return multiprocessing.Queue # type: ignore[return-value]
 
     @staticmethod
     @functools.cache

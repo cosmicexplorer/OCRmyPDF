@@ -186,7 +186,7 @@ def rasterize_pdf(
             )
 
     try:
-        assert isinstance(output_file, (str, bytes))
+        assert isinstance(output_file, (str, bytes, Path, BinaryIO)), output_file
         with Image.open(output_file) as im:
             if needs_low_dpi_resize:
                 # Resize to the dimensions that would have resulted from the
@@ -210,7 +210,6 @@ def rasterize_pdf(
                     im = im.transpose(Image.Transpose.ROTATE_270)
                 if rotation % 180 == 90:
                     page_dpi = page_dpi.flip_axis()
-            assert isinstance(output_file, (str, bytes))
             im.save(output_file, dpi=page_dpi)
     except UnidentifiedImageError:
         log.error(

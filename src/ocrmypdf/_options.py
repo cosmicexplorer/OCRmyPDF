@@ -10,7 +10,7 @@ import logging
 import os
 import shlex
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 from io import IOBase
 from pathlib import Path
@@ -65,7 +65,7 @@ class TaggedPdfMode(StrEnum):
     ignore = 'ignore'
 
 
-def _pages_from_ranges(ranges: str) -> set[int]:
+def _pages_from_ranges(ranges: str) -> Iterable[int]:
     """Convert page range string to set of page numbers."""
     pages: list[int] = []
     page_groups = ranges.replace(' ', '').split(',')
@@ -102,7 +102,7 @@ def _pages_from_ranges(ranges: str) -> set[int]:
         raise BadArgsError("pages refers to a page number less than 1")
 
     log.debug("OCRing only these pages: %s", pages)
-    return set(pages)
+    return pages
 
 
 class OcrOptions(BaseModel):

@@ -160,8 +160,12 @@ def exec_concurrent(context: PdfContext, executor: type[Executor]) -> Sequence[s
 
         # Copy PDF file to destination
         assert isinstance(options.output_file, (str, Path, BinaryIO))
-        assert isinstance(options.input_file, Path)
-        copy_final(pdf, options.output_file, options.input_file)
+        inf = options.input_file
+        if isinstance(inf, str):
+            inf = Path(inf)
+        if inf is not None:
+            assert isinstance(inf, Path), inf
+        copy_final(pdf, options.output_file, inf)
     return messages
 
 
