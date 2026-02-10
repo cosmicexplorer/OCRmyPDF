@@ -454,20 +454,36 @@ class TesseractOcrEngine(OcrEngine):
 
     @staticmethod
     def generate_pdf(input_file, output_pdf, output_text, options):
-        tesseract.generate_pdf(
-            input_file=input_file,
-            output_pdf=output_pdf,
-            output_text=output_text,
-            languages=options.languages,
-            engine_mode=options.tesseract.oem,
-            tessconfig=options.tesseract.config,
-            timeout=options.tesseract.timeout,
-            pagesegmode=options.tesseract.pagesegmode,
-            thresholding=options.tesseract.thresholding,
-            user_words=options.tesseract.user_words,
-            user_patterns=options.tesseract.user_patterns,
-            omp_thread_limit=options.tesseract.omp_thread_limit,
-        )
+        if opts_tesseract := getattr(options, 'tesseract', None):
+            tesseract.generate_pdf(
+                input_file=input_file,
+                output_pdf=output_pdf,
+                output_text=output_text,
+                languages=options.languages,
+                engine_mode=opts_tesseract.oem,
+                tessconfig=opts_tesseract.config,
+                timeout=opts_tesseract.timeout,
+                pagesegmode=opts_tesseract.pagesegmode,
+                thresholding=opts_tesseract.thresholding,
+                user_words=opts_tesseract.user_words,
+                user_patterns=opts_tesseract.user_patterns,
+                omp_thread_limit=opts_tesseract.omp_thread_limit,
+            )
+        else:
+            tesseract.generate_pdf(
+                input_file=input_file,
+                output_pdf=output_pdf,
+                output_text=output_text,
+                languages=options.languages,
+                engine_mode=0,
+                tessconfig=[],
+                timeout=0,
+                pagesegmode=0,
+                thresholding=None,
+                user_words=[],
+                user_patterns=[],
+                omp_thread_limit=0,
+            )
 
 
 @hookimpl

@@ -102,7 +102,7 @@ def _pages_from_ranges(ranges: str) -> Iterable[int]:
         raise BadArgsError("pages refers to a page number less than 1")
 
     log.debug("OCRing only these pages: %s", pages)
-    return pages
+    return list(frozenset(pages))
 
 
 class OcrOptions(BaseModel):
@@ -161,7 +161,7 @@ class OcrOptions(BaseModel):
 
     # OCR behavior
     skip_big: float | None = None
-    pages: str | set[int] | None = None  # Can be string or set after validation
+    pages: str | list[int] | None = None  # Can be string or set after validation
     invalidate_digital_signatures: bool = False
     tagged_pdf_mode: TaggedPdfMode = TaggedPdfMode.default
 
@@ -331,7 +331,7 @@ class OcrOptions(BaseModel):
         """Convert page ranges string to set of page numbers."""
         if v is None:
             return v
-        if isinstance(v, set):
+        if isinstance(v, list):
             return v  # Already processed
 
         # Convert string ranges to set of page numbers
