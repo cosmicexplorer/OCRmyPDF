@@ -32,7 +32,7 @@ from pikepdf import (
 from pikepdf.models.image import HifiPrintImageNotTranscodableError
 from PIL import Image
 
-from ocrmypdf._concurrent import Executor, SerialExecutor
+from ocrmypdf._concurrent import Executor, SerialExecutor, WorkloadKind
 from ocrmypdf._exec import ghostscript, jbig2enc, pngquant
 from ocrmypdf._jobcontext import PdfContext
 from ocrmypdf._progressbar import ProgressBar
@@ -128,7 +128,7 @@ def extract_image_filter(
     if Name.Decode in image:
         log.debug(f"xref {xref}: skipping image with Decode table")
         return None  # Don't mess with custom Decode tables
-    if image.get(Name.SMask, Dictionary()).get(Name.Matte, None) is not None:
+    if image.get(Name.SMask, Dictionary()).get(Name.Matte, None) is not None: # type: ignore[union-attr]
         # https://github.com/ocrmypdf/OCRmyPDF/issues/1536
         # Do not attempt to optimize images that have a SMask with a Matte.
         # That means alpha channel pre-blending is used, and we're not prepared
@@ -379,7 +379,7 @@ def extract_images_jbig2(pdf: Pdf, root: Path, options) -> list[XrefExt]:
 
 
 def _produce_jbig2_images(
-    jbig2_images: list[XrefExt], root: Path, options, executor: Executor
+    jbig2_images: list[XrefExt], root: Path, options, executor: type[Executor]
 ) -> None:
     """Produce JBIG2 images using lossless single-image encoding."""
 
@@ -393,8 +393,7 @@ def _produce_jbig2_images(
                 options.jbig2_threshold,
             )
 
-    executor(
-        use_threads=True,
+    executor.specialize(workload=WorkloadKind.MORE_SHARED_DATA)(
         max_workers=options.jobs,
         progress_kwargs=dict(
             total=len(jbig2_images),
@@ -412,7 +411,7 @@ def convert_to_jbig2(
     jbig2_images: list[XrefExt],
     root: Path,
     options,
-    executor: Executor,
+    executor: type[Executor],
 ) -> None:
     """Convert images to JBIG2 and insert into PDF.
 
@@ -446,7 +445,7 @@ def _optimize_jpeg(
 
 
 def transcode_jpegs(
-    pdf: Pdf, jpegs: Sequence[Xref], root: Path, options, executor: Executor
+    pdf: Pdf, jpegs: Sequence[Xref], root: Path, options, executor: type[Executor]
 ) -> None:
     """Optimize JPEGs according to optimization settings."""
 
@@ -464,8 +463,8 @@ def transcode_jpegs(
             im_obj.write(compdata, filter=Name.DCTDecode)
         pbar.update()
 
-    executor(
-        use_threads=True,  # Processes are significantly slower at this task
+    # Processes are significantly slower at this task!
+    executor.specialize(workload=WorkloadKind.MORE_SHARED_DATA)(
         max_workers=options.jobs,
         progress_kwargs=dict(
             desc="Recompressing JPEGs",
@@ -485,7 +484,7 @@ def _already_flate_encoded(image: Stream) -> bool:
     if filt is None:
         return False
     if isinstance(filt, Array):
-        return Name.FlateDecode in list(filt)
+        return Name.FlateDecode in list(filt) # type: ignore[call-overload]
     return filt == Name.FlateDecode
 
 
@@ -508,8 +507,8 @@ def _find_deflatable_jpeg(
             (
                 # Don't flate very large images because it will slow down PDF viewers
                 1 <= options.optimize <= 2
-                and image.get(Name.Width, 0) < FLATE_JPEG_THRESHOLD
-                and image.get(Name.Height, 0) < FLATE_JPEG_THRESHOLD
+                and image.get(Name.Width, 0) < FLATE_JPEG_THRESHOLD # type: ignore[call-overload]
+                and image.get(Name.Height, 0) < FLATE_JPEG_THRESHOLD # type: ignore[call-overload]
             )
             or options.optimize == 3
         )
@@ -534,7 +533,7 @@ def _deflate_jpeg(
     return xref, compdata
 
 
-def deflate_jpegs(pdf: Pdf, root: Path, options, executor: Executor) -> None:
+def deflate_jpegs(pdf: Pdf, root: Path, options, executor: type[Executor]) -> None:
     """Apply FlateDecode to JPEGs.
 
     This is a lossless compression method that is supported by all PDF viewers,
@@ -564,8 +563,8 @@ def deflate_jpegs(pdf: Pdf, root: Path, options, executor: Executor) -> None:
                 xobj.write(compdata, filter=[Name.FlateDecode, Name.DCTDecode])
         pbar.update()
 
-    executor(
-        use_threads=True,  # We're sharing the pdf directly, must use threads
+    # We're sharing the pdf directly--must use threads!
+    executor.specialize(workload=WorkloadKind.MORE_SHARED_DATA)(
         max_workers=options.jobs,
         progress_kwargs=dict(
             desc="Deflating JPEGs",
@@ -588,11 +587,15 @@ def _transcode_png(pdf: Pdf, filename: Path, xref: Xref) -> bool:
         foreign_image = next(iter(pdf_image.pages[0].images.values()))
         local_image = pdf.copy_foreign(foreign_image)
 
+        filt = local_image.Filter
+        assert isinstance(filt, (Name, Array))
+        parms = local_image.DecodeParms
+        assert isinstance(parms, (Dictionary, Array))
         im_obj = pdf.get_object(xref, 0)
         im_obj.write(
             local_image.read_raw_bytes(),
-            filter=local_image.Filter,
-            decode_parms=local_image.DecodeParms,
+            filter=filt,
+            decode_parms=parms,
         )
 
         # Don't copy keys from the new image...
@@ -626,7 +629,7 @@ def transcode_pngs(
     image_name_fn: Callable[[Path, Xref], Path],
     root: Path,
     options,
-    executor: Executor,
+    executor: type[Executor],
 ) -> None:
     """Apply lossy transcoding to PNGs."""
     modified: MutableSet[Xref] = set()
@@ -647,8 +650,7 @@ def transcode_pngs(
                 )
                 modified.add(xref)
 
-        executor(
-            use_threads=True,
+        executor.specialize(workload=WorkloadKind.MORE_SHARED_DATA)(
             max_workers=options.jobs,
             progress_kwargs=dict(
                 desc="PNGs",
@@ -665,7 +667,7 @@ def transcode_pngs(
         _transcode_png(pdf, filename, xref)
 
 
-DEFAULT_EXECUTOR = SerialExecutor()
+DEFAULT_EXECUTOR = SerialExecutor
 
 
 def optimize(
@@ -673,7 +675,7 @@ def optimize(
     output_file: Path,
     context: PdfContext,
     save_settings: dict[str, Any],
-    executor: Executor = DEFAULT_EXECUTOR,
+    executor: type[Executor] = DEFAULT_EXECUTOR,
 ) -> Path:
     """Optimize images in a PDF file."""
     options = context.options

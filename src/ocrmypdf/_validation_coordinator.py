@@ -116,7 +116,7 @@ class ValidationCoordinator:
         ):
             raise ValueError(
                 "Since you specified `--output-type none`, the output file "
-                f"{options.output_file} cannot be produced. Set the output file to "
+                f"{options.output_file!r} cannot be produced. Set the output file to "
                 "`-` to suppress this message."
             )
 

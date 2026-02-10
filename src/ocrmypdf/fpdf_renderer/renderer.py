@@ -399,6 +399,7 @@ class Fpdf2PdfRenderer:
                     line_language,
                 )
             if next_word:  # Don't render EOL sentinel
+                assert current_word is not None
                 self._maybe_render_space(
                     pdf,
                     current_word,
@@ -474,7 +475,7 @@ class Fpdf2PdfRenderer:
         word_font_size = font_size
 
         # Set font
-        pdf.set_font(font_family, size=word_font_size)
+        pdf.set_font(font_family, size=int(word_font_size))
 
         # Calculate natural text width at this font size
         natural_width = pdf.get_string_width(word.text)
@@ -677,7 +678,7 @@ class Fpdf2PdfRenderer:
         font_family = self._register_font(pdf, font_manager)
 
         # Set font
-        pdf.set_font(font_family, size=font_size)
+        pdf.set_font(font_family, size=int(font_size))
 
         # Calculate natural space width and scaling
         natural_width = pdf.get_string_width(" ")
@@ -802,9 +803,9 @@ class Fpdf2MultiPageRenderer:
 
         # Set text mode for invisible text
         if self.invisible_text:
-            pdf.text_rendering_mode = TextMode.INVISIBLE
+            pdf.text_mode = TextMode.INVISIBLE
         else:
-            pdf.text_rendering_mode = TextMode.FILL
+            pdf.text_mode = TextMode.FILL
 
         # Shared font registration across all pages
         shared_registered_fonts: dict[str, str] = {}

@@ -48,7 +48,7 @@ class WorkloadKind(Enum):
 
 
 @runtime_checkable
-class Executor[Lock: SharedLock](Protocol[Lock]):
+class Executor[Lock: SharedLock](Protocol):
     @property
     def pool_lock(self) -> Lock:
         pass
@@ -73,7 +73,7 @@ class Executor[Lock: SharedLock](Protocol[Lock]):
     ) -> bool | None:
         pass
 
-    def __call__(
+    def __call__[T](
         self,
         *,
         max_workers: int,
@@ -86,7 +86,7 @@ class Executor[Lock: SharedLock](Protocol[Lock]):
         pass
 
 
-class ExecutorBase[Lock: SharedLock](ABC):
+class ExecutorBase(ABC):
     """Abstract concurrent executor."""
 
     def __init__(self, *args, pbar_class: type[ProgressBar] | None = None, **kwargs):
@@ -95,7 +95,7 @@ class ExecutorBase[Lock: SharedLock](ABC):
         self.pbar: ProgressBar | None = None
 
     @abstractproperty
-    def pool_lock(self) -> Lock:
+    def pool_lock(self) -> SharedLock:
         """Return a semaphore to synchronize any shared state."""
 
     @classmethod
@@ -149,6 +149,7 @@ class ExecutorBase[Lock: SharedLock](ABC):
             return True
         if pbar.__exit__(exc_type, exc_val, exc_tb):
             return True
+        return None
 
     def __call__(
         self,
@@ -184,7 +185,7 @@ class ExecutorBase[Lock: SharedLock](ABC):
         if not task_finished:
             task_finished = _task_finished_noop
         if not task:
-            task = _task_noop
+            task = _task_noop   # type: ignore[assignment]
 
         self._initialize_progress_bar(**progress_kwargs)
         self._initialize_workers(
@@ -193,7 +194,7 @@ class ExecutorBase[Lock: SharedLock](ABC):
         )
         with self:
             self._execute(
-                task=task,
+                task=task,      # type: ignore[arg-type]
                 task_arguments=task_arguments,
                 task_finished=task_finished,
             )
@@ -209,7 +210,7 @@ class ExecutorBase[Lock: SharedLock](ABC):
         """Custom executors should override this method."""
 
 
-def setup_executor(plugin_manager) -> Executor:
+def setup_executor(plugin_manager) -> type[Executor]:
     pbar_class = plugin_manager.get_progressbar_class()
     return plugin_manager.get_executor(progressbar_class=pbar_class)
 
@@ -229,12 +230,13 @@ class SerialLock:
 
     def __exit__(self, *args) -> bool | None:
         self._locked = False
+        return None
 
 
 assert issubclass(SerialLock, SharedLock)
 
 
-class SerialExecutor(ExecutorBase[SerialLock]):
+class SerialExecutor(ExecutorBase):
     """Implements a purely sequential executor using the parallel protocol.
 
     The current process/thread will be the worker that executes all tasks

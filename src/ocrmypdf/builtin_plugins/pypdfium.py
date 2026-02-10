@@ -8,10 +8,10 @@ import logging
 import threading
 from contextlib import closing
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 if TYPE_CHECKING:
-    import pypdfium2 as pdfium
+    import pypdfium2 as pdfium  # type: ignore[import-untyped]
 else:
     try:
         import pypdfium2 as pdfium
@@ -209,7 +209,8 @@ def _process_image_for_output(
         else:
             log.warning(f"Unsupported raster device {raster_device}, using PNG")
 
-    return pil_image, format_name
+    assert format_name in ['PNG', 'TIFF', 'JPEG']
+    return pil_image, cast(Literal['PNG', 'TIFF', 'JPEG'], format_name)
 
 
 def _save_image(pil_image: Image.Image, output_file: Path, format_name: str) -> None:

@@ -10,10 +10,12 @@ import logging
 import logging.handlers
 from collections.abc import Sequence
 from functools import partial
+from pathlib import Path
+from typing import BinaryIO
 
 import PIL
 
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, WorkloadKind
 from ocrmypdf._graft import OcrGrafter
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._options import OcrOptions
@@ -48,7 +50,7 @@ def _exec_hocrtransform_sync(page_context: PageContext) -> HOCRResult:
     return hocr_result
 
 
-def exec_hocr_to_ocr_pdf(context: PdfContext, executor: Executor) -> Sequence[str]:
+def exec_hocr_to_ocr_pdf(context: PdfContext, executor: type[Executor]) -> Sequence[str]:
     """Convert hOCR files to OCR PDF."""
     # Run exec_page_sync on every page
     options = context.options
@@ -75,8 +77,7 @@ def exec_hocr_to_ocr_pdf(context: PdfContext, executor: Executor) -> Sequence[st
         finally:
             set_thread_pageno(None)
 
-    executor(
-        use_threads=options.use_threads,
+    executor.specialize(workload=WorkloadKind(options.use_threads))(
         max_workers=max_workers,
         progress_kwargs=dict(
             total=(2 * len(context.pdfinfo)),
@@ -99,6 +100,7 @@ def exec_hocr_to_ocr_pdf(context: PdfContext, executor: Executor) -> Sequence[st
         pdf, messages = postprocess(pdf, context, executor)
 
         # Copy PDF file to destination (we don't know the input PDF file name)
+        assert isinstance(options.output_file, (str, Path, BinaryIO))
         copy_final(pdf, options.output_file, None)
     return messages
 
@@ -109,6 +111,7 @@ def run_hocr_to_ocr_pdf_pipeline(
     plugin_manager: OcrmypdfPluginManager,
 ) -> ExitCode:
     """Run pipeline to convert hOCR to final output PDF."""
+    assert options.work_folder is not None
     with manage_work_folder(
         work_folder=options.work_folder, retain=True, print_location=False
     ) as work_folder:

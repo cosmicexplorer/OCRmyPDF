@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import os
 import shutil
 from functools import partial
 
 import PIL
 
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, WorkloadKind
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._options import OcrOptions
 from ocrmypdf._pipeline import (
@@ -58,7 +59,7 @@ def _exec_page_hocr_sync(page_context: PageContext) -> HOCRResult:
     return result
 
 
-def exec_pdf_to_hocr(context: PdfContext, executor: Executor) -> None:
+def exec_pdf_to_hocr(context: PdfContext, executor: type[Executor]) -> None:
     """Execute the OCR pipeline concurrently and output hOCR."""
     # Run exec_page_sync on every page
     options = context.options
@@ -67,8 +68,7 @@ def exec_pdf_to_hocr(context: PdfContext, executor: Executor) -> None:
     if max_workers > 1:
         log.info("Starting processing with %d workers concurrently", max_workers)
 
-    executor(
-        use_threads=options.use_threads,
+    executor.specialize(workload=WorkloadKind(options.use_threads))(
         max_workers=max_workers,
         progress_kwargs=dict(
             total=(2 * len(context.pdfinfo)),
@@ -96,6 +96,7 @@ def run_hocr_pipeline(
     ) as work_folder:
         executor = setup_pipeline(options, plugin_manager)
         origin_pdf = work_folder / 'origin.pdf'
+        assert isinstance(options.input_file, os.PathLike)
         shutil.copy2(options.input_file, origin_pdf)
 
         # Gather pdfinfo and create context

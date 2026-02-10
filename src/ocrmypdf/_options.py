@@ -18,7 +18,7 @@ from typing import Any, BinaryIO
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ocrmypdf._defaults import DEFAULT_LANGUAGE, DEFAULT_ROTATE_PAGES_THRESHOLD
+from ocrmypdf._defaults import DEFAULT_LANGUAGE, DEFAULT_ROTATE_PAGES_THRESHOLD, DEFAULT_WORKLOAD_ASSUMPTIONS
 from ocrmypdf.exceptions import BadArgsError
 from ocrmypdf.helpers import monotonic
 
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 # Module-level registry for plugin option models
 # This is populated by setup_plugin_infrastructure() after plugins are loaded
-_plugin_option_models: dict[str, type] = {}
+_plugin_option_models: dict[str, type[BaseModel]] = {}
 
 PathOrIO = BinaryIO | IOBase | Path | str | bytes
 
@@ -142,7 +142,7 @@ class OcrOptions(BaseModel):
 
     # Job control
     jobs: int | None = None
-    use_threads: bool = True
+    workload: str = DEFAULT_WORKLOAD_ASSUMPTIONS
     progress_bar: bool = True
     quiet: bool = False
     verbose: int = 0
@@ -175,7 +175,6 @@ class OcrOptions(BaseModel):
     optimize: int = 1
     jpg_quality: int | None = None
     png_quality: int | None = None
-    jbig2_threshold: float = 0.85
 
     # Compatibility alias for plugins that expect jpeg_quality
     @property

@@ -24,7 +24,7 @@ import img2pdf
 import pikepdf
 from PIL import Image, ImageColor, ImageDraw
 
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, WorkloadKind
 from ocrmypdf._exec import unpaper
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._metadata import repair_docinfo_nuls
@@ -192,11 +192,11 @@ def triage(
 def get_pdfinfo(
     input_file,
     *,
-    executor: Executor,
+    executor: type[Executor],
     detailed_analysis: bool = False,
     progbar: bool = False,
     max_workers: int | None = None,
-    use_threads: bool = True,
+    workload: WorkloadKind = WorkloadKind.MORE_SHARED_DATA,
     check_pages=None,
 ) -> PdfInfo:
     """Get the PDF info."""
@@ -206,7 +206,7 @@ def get_pdfinfo(
             detailed_analysis=detailed_analysis,
             progbar=progbar,
             max_workers=max_workers,
-            use_threads=use_threads,
+            workload=workload,
             check_pages=check_pages,
             executor=executor,
         )
@@ -1157,7 +1157,7 @@ def _file_size_ratio(
 
 
 def optimize_pdf(
-    input_file: Path, context: PdfContext, executor: Executor
+    input_file: Path, context: PdfContext, executor: type[Executor]
 ) -> tuple[Path, Sequence[str]]:
     """Optimize the given PDF file."""
     output_file = context.get_path('optimize.pdf')
@@ -1204,6 +1204,7 @@ def enumerate_compress_ranges(
             if skipped_from is None:
                 skipped_from = index
     if skipped_from is not None:
+        assert index is not None
         yield (skipped_from, index), None
 
 

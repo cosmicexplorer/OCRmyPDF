@@ -125,7 +125,7 @@ def setup_plugin_infrastructure(
     OcrOptions.register_plugin_models(all_plugin_models)
 
     # Store registry in plugin manager for later access
-    plugin_manager._option_registry = registry
+    plugin_manager._option_registry = registry # type: ignore[attr-defined]
 
     return plugin_manager
 

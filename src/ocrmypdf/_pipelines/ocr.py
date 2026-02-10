@@ -12,10 +12,11 @@ from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
 from tempfile import mkdtemp
+from typing import BinaryIO
 
 import PIL
 
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, WorkloadKind
 from ocrmypdf._graft import OcrGrafter
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._options import OcrOptions
@@ -98,7 +99,7 @@ def _exec_page_sync(page_context: PageContext) -> PageResult:
     )
 
 
-def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
+def exec_concurrent(context: PdfContext, executor: type[Executor]) -> Sequence[str]:
     """Execute the OCR pipeline concurrently."""
     options = context.options
     jobs = options.jobs or available_cpu_count()
@@ -126,8 +127,7 @@ def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
         finally:
             set_thread_pageno(None)
 
-    executor(
-        use_threads=options.use_threads,
+    executor.specialize(workload=WorkloadKind(options.use_threads))(
         max_workers=max_workers,
         progress_kwargs=dict(
             total=len(context.pdfinfo),
@@ -145,6 +145,8 @@ def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
     if options.sidecar:
         text = merge_sidecars(sidecars, context)
         # Copy text file to destination
+        assert isinstance(options.sidecar, (str, Path, BinaryIO))
+        assert isinstance(options.input_file, Path)
         copy_final(text, options.sidecar, options.input_file)
 
     # Merge layers to one single pdf
@@ -157,6 +159,8 @@ def exec_concurrent(context: PdfContext, executor: Executor) -> Sequence[str]:
         pdf, messages = postprocess(pdf, context, executor)
 
         # Copy PDF file to destination
+        assert isinstance(options.output_file, (str, Path, BinaryIO))
+        assert isinstance(options.input_file, Path)
         copy_final(pdf, options.output_file, options.input_file)
     return messages
 

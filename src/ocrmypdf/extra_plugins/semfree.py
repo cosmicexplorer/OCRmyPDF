@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import signal
+import threading
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import suppress
@@ -30,9 +31,10 @@ from enum import Enum, auto
 from itertools import islice, repeat, takewhile, zip_longest
 from multiprocessing import Pipe, Process
 from multiprocessing.connection import Connection, wait
+from typing import Any, Self
 
-from ocrmypdf import Executor, hookimpl
-from ocrmypdf._concurrent import NullProgressBar
+from ocrmypdf import Executor, hookimpl, SharedLock, ExecutorBase, Executor, WorkloadKind
+from ocrmypdf._concurrent import NullProgressBar, ProgressBar
 from ocrmypdf.exceptions import InputFileError
 from ocrmypdf.helpers import remove_all_log_handlers
 
@@ -40,6 +42,8 @@ warnings.warn(
     "semfree.py is deprecated and will be removed in a future release.",
     DeprecationWarning,
 )
+
+_basic_logger = logging.getLogger(__name__)
 
 
 class MessageType(Enum):
@@ -114,30 +118,69 @@ def process_loop(
     return
 
 
-class LambdaExecutor(Executor):
+class LambdaExecutor(ExecutorBase):
     """Executor for AWS Lambda or similar environments that lack semaphores."""
+
+    def __init__(self, *args, workload: WorkloadKind, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._workload = workload
+        self._pool_lock = threading.Lock()
+        self._max_workers: int | None = None
+        self._init: Callable | None = None
+
+    @property
+    def pool_lock(self) -> SharedLock:
+        return self._pool_lock  # type: ignore[return-value]
+
+    @classmethod
+    def specialize(
+        cls,
+        workload: WorkloadKind,
+        *,
+        pbar_class: type[ProgressBar] | None = None,
+    ) -> Self:
+        return cls(
+            workload=workload,
+            pbar_class=pbar_class,
+        )
+
+    def _initialize_workers(
+        self,
+        *,
+        max_workers: int,
+        worker_initializer: Callable,
+    ) -> None:
+        assert self._max_workers is None
+        assert self._init is None
+        assert isinstance(max_workers, int)
+        self._max_workers = max_workers or 0
+        self._init = worker_initializer
 
     def _execute(
         self,
         *,
-        use_threads: bool,
-        max_workers: int,
-        progress_kwargs: Mapping[str, Any],
-        worker_initializer: Callable,
         task: Callable,
         task_arguments: Iterable,
         task_finished: Callable,
     ) -> None:
-        if use_threads and max_workers == 1:
-            with self.pbar_class(**progress_kwargs) as pbar:
-                for args in task_arguments:
-                    result = task(*args)
-                    task_finished(result, pbar)
-            return
+        assert self.pbar is not None
+        assert isinstance(self._max_workers, int) and self._max_workers > 0
+        assert self._init is not None
 
         task_arguments = list(task_arguments)
+
+        match (self._workload, self._max_workers):
+            case (WorkloadKind.MORE_SHARED_DATA, 1):
+                _basic_logger.warn(f"worker _initializer callable %r was ignored", self._init)
+                _basic_logger.warn(f"performing synchronous iteration over %d args (%r)",
+                                   len(task_arguments), task_arguments)
+                for args in task_arguments:
+                    result = task(*args)
+                    task_finished(result, self.pbar)
+                return
+
         grouped_args = list(
-            zip_longest(*list(split_every(max_workers, task_arguments)))
+            zip_longest(*list(split_every(self._max_workers, task_arguments)))
         )
         if not grouped_args:
             return
@@ -152,7 +195,7 @@ class LambdaExecutor(Executor):
                 target=process_loop,
                 args=(
                     child_conn,
-                    worker_initializer,
+                    self._init,
                     logging.getLogger("").level,
                     task,
                     worker_args,
@@ -165,38 +208,40 @@ class LambdaExecutor(Executor):
         for process in processes:
             process.start()
 
-        with self.pbar_class(**progress_kwargs) as pbar:
-            while connections:
-                for result in wait(connections):
-                    if not isinstance(result, Connection):
-                        raise NotImplementedError("We only support Connection()")
-                    try:
-                        msg_type, msg = result.recv()
-                    except EOFError:
-                        connections.remove(result)
-                        continue
+        while connections:
+            for result in wait(connections):
+                if not isinstance(result, Connection):
+                    raise NotImplementedError("We only support Connection()")
+                try:
+                    msg_type, msg = result.recv()
+                except EOFError:
+                    connections.remove(result)
+                    continue
 
-                    if msg_type == MessageType.result:
-                        task_finished(msg, pbar)
-                    elif msg_type == 'log':
-                        record = msg
-                        logger = logging.getLogger(record.name)
-                        logger.handle(record)
-                    elif msg_type == MessageType.complete:
-                        connections.remove(result)
-                    elif msg_type == MessageType.exception:
-                        for process in processes:
-                            process.terminate()
-                        raise msg
+                if msg_type == MessageType.result:
+                    task_finished(msg, self.pbar)
+                elif msg_type == 'log':
+                    record = msg
+                    logger = logging.getLogger(record.name)
+                    logger.handle(record)
+                elif msg_type == MessageType.complete:
+                    connections.remove(result)
+                elif msg_type == MessageType.exception:
+                    for process in processes:
+                        process.terminate()
+                    raise msg
 
-        for process in processes:
-            process.join()
+            for process in processes:
+                process.join()
 
 
 @hookimpl
-def get_executor(progressbar_class):
+def get_executor(progressbar_class: type[ProgressBar]) -> Executor:
     """Return a LambdaExecutor instance."""
-    return LambdaExecutor(pbar_class=progressbar_class)
+    return LambdaExecutor.specialize(
+        workload=WorkloadKind.MORE_SHARED_DATA,
+        pbar_class=progressbar_class,
+    )
 
 
 @hookimpl

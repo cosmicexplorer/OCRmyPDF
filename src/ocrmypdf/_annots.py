@@ -42,25 +42,24 @@ def remove_broken_goto_annotations(pdf: Pdf) -> bool:
     names = set(k for k in nametree.keys())
 
     for n, page in enumerate(pdf.pages):
-        if Name.Annots not in page:
-            continue
-        for annot in page[Name.Annots]:
-            if not isinstance(annot, Dictionary):
-                continue
-            if Name.A not in annot or Name.D not in annot[Name.A]:
-                continue
-            # We found an annotation that points to a named destination
-            named_destination = str(annot[Name.A][Name.D])
-            if named_destination not in names:
-                # If there is no corresponding named destination, remove the
-                # annotation. Having no destination set is still valid and just
-                # makes the link non-functional.
-                log.warning(
-                    f"Disabling a hyperlink annotation on page {n + 1} to a "
-                    "non-existent named destination "
-                    f"{named_destination}."
-                )
-                del annot[Name.A][Name.D]
-                modified = True
+        if found_annots := page.get(Name.Annots, default=None):
+            for annot in iter(found_annots):
+                if not isinstance(annot, Dictionary):
+                    continue
+                if Name.A not in annot or Name.D not in annot[Name.A]:
+                    continue
+                # We found an annotation that points to a named destination
+                named_destination = str(annot[Name.A][Name.D])
+                if named_destination not in names:
+                    # If there is no corresponding named destination, remove the
+                    # annotation. Having no destination set is still valid and just
+                    # makes the link non-functional.
+                    log.warning(
+                        f"Disabling a hyperlink annotation on page {n + 1} to a "
+                        "non-existent named destination "
+                        f"{named_destination}."
+                    )
+                    del annot[Name.A][Name.D]
+                    modified = True
 
     return modified

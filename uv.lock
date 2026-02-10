@@ -1303,6 +1303,8 @@ dev = [
     { name = "ipykernel" },
     { name = "mypy" },
     { name = "reportlab" },
+    { name = "types-fpdf2" },
+    { name = "types-pluggy" },
 ]
 docs = [
     { name = "myst-parser" },
@@ -1356,6 +1358,8 @@ dev = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "reportlab", specifier = ">=4.4.4" },
+    { name = "types-fpdf2" },
+    { name = "types-pluggy" },
 ]
 docs = [
     { name = "myst-parser", specifier = ">=4.0.1" },
@@ -2735,6 +2739,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-fpdf2"
+version = "2.8.4.20260130"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/4b/6a2ae17bcee1551071fbd58f2897d5695d97d9a98e5235857ba755c05882/types_fpdf2-2.8.4.20260130.tar.gz", hash = "sha256:c635cbbb013e6c09edcc208c75df2784ca7c2c5971fef76eacd609afa2fe6cd5", size = 41404, upload-time = "2026-01-30T03:58:26.099Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/05/2ee01aff9b6bf1fad7d8a5cddb8c0808d84a2337ffb4804f122a2417c99f/types_fpdf2-2.8.4.20260130-py3-none-any.whl", hash = "sha256:6f77c426558f8c5e0231188367b87270249deb2bb3493d8ed458d7cd2de659dd", size = 48293, upload-time = "2026-01-30T03:58:24.725Z" },
+]
+
+[[package]]
 name = "types-humanfriendly"
 version = "10.0.1.20250319"
 source = { registry = "https://pypi.org/simple" }
@@ -2750,6 +2766,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/18/4a/4495264dddaa600d65d68bcedb64dcccf9d9da61adff51f7d2ffd8e4c9ce/types-Pillow-10.2.0.20240822.tar.gz", hash = "sha256:559fb52a2ef991c326e4a0d20accb3bb63a7ba8d40eb493e0ecb0310ba52f0d3", size = 35389, upload-time = "2024-08-22T02:32:48.15Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/66/23/e81a5354859831fcf54d488d33b80ba6133ea84f874a9c0ec40a4881e133/types_Pillow-10.2.0.20240822-py3-none-any.whl", hash = "sha256:d9dab025aba07aeb12fd50a6799d4eac52a9603488eca09d7662543983f16c5d", size = 54354, upload-time = "2024-08-22T02:32:46.664Z" },
+]
+
+[[package]]
+name = "types-pluggy"
+version = "1.2.0.20240106"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/8f/b8ac209fb4610f59d9a29049248bebe71780b43a1a423f0a44a091634e79/types-pluggy-1.2.0.20240106.tar.gz", hash = "sha256:df598c71add54b70a8074c0d59a884512724a50591c3f86af7794c5a824df005", size = 4440, upload-time = "2024-01-06T02:20:15.752Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/2b/f5820c136b3f1297ec1781108ca53c934900576fdfbb099184f8eb440928/types_pluggy-1.2.0.20240106-py3-none-any.whl", hash = "sha256:8ab6a9d6ab853f057e54539100aaa0faf0ff049fa67ed716c8584e6ced86b68b", size = 5494, upload-time = "2024-01-06T02:20:14.373Z" },
 ]
 
 [[package]]

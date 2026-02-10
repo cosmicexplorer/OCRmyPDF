@@ -21,7 +21,7 @@ class PluginOptionRegistry:
     compatibility (e.g., options.tesseract_timeout).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._option_models: dict[str, type[BaseModel]] = {}
 
     def register_option_model(

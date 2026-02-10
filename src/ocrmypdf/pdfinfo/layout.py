@@ -18,7 +18,7 @@ import pdfminer.encodingdb
 import pdfminer.pdfdevice
 import pdfminer.pdfinterp
 import pdfminer.psparser
-from deprecation import deprecated
+from deprecation import deprecated # type: ignore[import-untyped]
 from pdfminer.converter import PDFLayoutAnalyzer
 from pdfminer.layout import LAParams, LTChar, LTPage, LTTextBox
 from pdfminer.pdfcolor import PDFColorSpace
@@ -58,7 +58,7 @@ def pdfsimplefont__init__(
     return
 
 
-PDFSimpleFont.__init__ = pdfsimplefont__init__
+PDFSimpleFont.__init__ = pdfsimplefont__init__ # type: ignore[method-assign]
 
 # Patch pdfminer.six buffer size
 # The parser doesn't properly handle keyword tokens are split across the end of the
@@ -359,6 +359,7 @@ class PdfMinerState:
         """Get the page analysis for a given page."""
         while len(self.page_cache) <= pageno:
             try:
+                assert self.page_iter is not None
                 self.page_cache.append(next(self.page_iter))
             except StopIteration:
                 raise InputFileError(

@@ -35,11 +35,11 @@ from ocrmypdf.helpers import remove_all_log_handlers
 
 if TYPE_CHECKING:
     from types import TracebackType
-    from typing import Any, Protocol, TypeAlias, TypeVar, runtime_checkable
+    from typing import Any, ClassVar, Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
     from typing_extensions import Self
 
     @runtime_checkable
-    class Queue[T](Protocol[T]):
+    class Queue[T](Protocol):
         def get(self) -> T | None:
             """Wait to retrieve the next value."""
 
@@ -54,12 +54,43 @@ if TYPE_CHECKING:
 
     E = TypeVar('E', bound=BaseException)
 
+    _Q = TypeVar('_Q', bound=Queue[logging.LogRecord])
+    _Exe = TypeVar('_Exe', bound=StdlibExecutor)
+
+    @runtime_checkable
+    class StandardExecutorGeneration[
+        Q: Queue[logging.LogRecord],
+        Exe: StdlibExecutor,
+    ](Protocol):
+        def __call__(
+            self,
+            max_workers: int,
+            initializer: WorkerInit,
+            initargs: tuple[Q, UserInit, int],
+        ) -> Exe:
+            pass
+
+    @runtime_checkable
+    class LockGenerator[Lock: SharedLock](Protocol):
+        def __call__(self) -> Lock:
+            pass
+
+    @runtime_checkable
+    class QueueGenerator[Q: Queue[logging.LogRecord]](Protocol):
+        def __call__(self, n: int) -> Q:
+            pass
+
+    _ExeGen = TypeVar('_ExeGen', bound=StandardExecutorGeneration)
+
+    assert isinstance(type[ThreadPoolExecutor], StandardExecutorGeneration)
+    assert isinstance(type[ProcessPoolExecutor], StandardExecutorGeneration)
+
     @runtime_checkable
     class ExecutorPlatform[
         Lock: SharedLock,
         Q: Queue[logging.LogRecord],
         Exe: StdlibExecutor,
-    ](Executor[Lock]):
+    ](Executor[Lock], Protocol):
         def make_queue(self) -> Q:
             pass
 
@@ -151,11 +182,11 @@ def thread_init(
 
 
 @functools.cache
-def setup_executor(workload: WorkloadKind) -> type[_ParallelismFrameworkExecutor]:
+def setup_executor(workload: WorkloadKind) -> StandardExecutorGeneration:
     # Check if semaphore support is available, and if not, fall back to using threads.
     match workload:
         case WorkloadKind.MORE_MESSAGING:
-            if lock_type := _IPCExecutor._try_lock_type():
+            if _IPCExecutor._try_lock_type() is not None:
                 return _IPCExecutor
             # We currently expect inter-thread locks to always be available.
             _basic_logger.info(
@@ -165,7 +196,7 @@ def setup_executor(workload: WorkloadKind) -> type[_ParallelismFrameworkExecutor
             )
             return setup_executor(WorkloadKind.MORE_SHARED_DATA)
         case WorkloadKind.MORE_SHARED_DATA:
-            if lock_type := _ThreadedExecutor._try_lock_type():
+            if _ThreadedExecutor._try_lock_type() is not None:
                 return _ThreadedExecutor
             _basic_logger.info(
                 "in-memory semaphore unavailable for workload %s (no fallback)",
@@ -176,19 +207,15 @@ def setup_executor(workload: WorkloadKind) -> type[_ParallelismFrameworkExecutor
     )
 
 
-class _ConcurrentExecutorBase[
-    Lock: SharedLock,
-    Q: Queue[logging.LogRecord],
-    Exe: StdlibExecutor,
-](ExecutorBase[Lock]):
+class _ConcurrentExecutorBase(ExecutorBase):
     """Standard OCRmyPDF concurrent task executor."""
 
     @abstractmethod
-    def make_queue(self) -> Q:
+    def make_queue(self) -> Queue[logging.LogRecord]:
         """Internal shared queue."""
 
     @abstractmethod
-    def make_lock(self) -> Lock:
+    def make_lock(self) -> SharedLock:
         """Generate an instance of this class's shared locking apparatus."""
 
     @abstractmethod
@@ -196,19 +223,19 @@ class _ConcurrentExecutorBase[
         self,
         *,
         max_workers: int,
-        worker_initializer: Callable,
-    ) -> Exe:
+        worker_initializer: Callable[[], None],
+    ) -> StdlibExecutor:
         """Internal executor type."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._pool_lock = self.make_lock()
-        self._inner_executor: Exe | None = None
-        self._log_queue: Q | None = None
+        self._inner_executor: StdlibExecutor | None = None
+        self._log_queue: Queue[logging.LogRecord] | None = None
         self._listener: threading.Thread | None = None
 
     @property
-    def pool_lock(self) -> Lock:
+    def pool_lock(self) -> SharedLock:
         return self._pool_lock
 
     def _initialize_workers(
@@ -239,8 +266,8 @@ class _ConcurrentExecutorBase[
         # performance hit in pdfinfo if we can't fork. Long term solution is to
         # replace most of this with an asyncio implementation, and probably to
         # migrate some of pdfinfo into C++ or Rust.
-        self._listener = threading.Thread(target=log_listener, args=(self.queue,))
-        listener.start()
+        self._listener = threading.Thread(target=log_listener, args=(self._log_queue,))
+        self._listener.start()
 
         # NB: We want to call the parent locking logic *after* starting the background thread.
         super().__enter__()
@@ -256,6 +283,7 @@ class _ConcurrentExecutorBase[
         exc_val: E | None,
         exc_tb: TracebackType | None,
     ) -> bool | None:
+        assert self._inner_executor is not None
         assert self._log_queue is not None
         assert self._listener is not None
 
@@ -275,7 +303,7 @@ class _ConcurrentExecutorBase[
             # Reset the context-specific state. This technically enables reuse upon successful exit.
             self._log_queue = None
             self._listener = None
-            return
+            return None
 
         assert exc_type is not None and exc_tb is not None
         # Unlike in the success case, we do not clobber the context-specific state, in case it
@@ -302,15 +330,27 @@ class _ParallelismFrameworkExecutor[
     Lock: SharedLock,
     Q: Queue[logging.LogRecord],
     Exe: StdlibExecutor,
-](_ConcurrentExecutorBase[Lock, Q, Exe]):
+](_ConcurrentExecutorBase):
     @staticmethod
     @abstractmethod
-    def _try_lock_type() -> type[Lock] | None:
+    def _try_lock_type() -> LockGenerator[Lock] | None:
         """Try to access the base type definition for the shared lock."""
+
+
+    def make_lock(self) -> Lock:
+        return self.__class__._try_lock_type()() # type: ignore[misc]
 
     @staticmethod
     @abstractmethod
-    def _executor_class() -> type[Exe]:
+    def _queue_type() -> QueueGenerator[Q]:
+        pass
+
+    def make_queue(self) -> Q:
+        return self.__class__._queue_type()(-1)
+
+    @staticmethod
+    @abstractmethod
+    def _executor_class() -> StandardExecutorGeneration[Q, Exe]:
         """Return a concrete type definition implementing the stdlib ``Executor`` interface."""
 
     @staticmethod
@@ -322,14 +362,13 @@ class _ParallelismFrameworkExecutor[
         self,
         *,
         max_workers: int,
-        worker_initializer: Callable,
+        worker_initializer: Callable[[], None],
     ) -> Exe:
-        assert isinstance(self._log_queue, Queue)
         cls = self.__class__._executor_class()
         return cls(
             max_workers=max_workers,
-            initializer=self.__class__._worker_init,
-            initargs=(self._log_queue, worker_initializer, logging.getLogger("").level),
+            initializer=self.__class__._worker_init, # type: ignore[arg-type]
+            initargs=(self._log_queue, worker_initializer, logging.getLogger("").level), # type: ignore[arg-type]
         )
 
     @classmethod
@@ -343,23 +382,19 @@ class _ParallelismFrameworkExecutor[
         raise NotImplementedError(f"cannot specialize based on workload {workload!r}")
 
 
-class _IPCExecutor(
-    _ParallelismFrameworkExecutor[
-        'multiprocessing.Lock',
-        'multiprocessing.queues.Queue',
-        'ProcessPoolExecutor',
-    ]
-):
-    @staticmethod
-    def _queue_type() -> type['multiprocessing.queues.Queue']:
-        return multiprocessing.queues.Queue
+class _IPCExecutor(_ParallelismFrameworkExecutor[
+    'multiprocessing.synchronize.SemLock', # type: ignore[type-var]
+    'multiprocessing.queues.Queue',
+    'ProcessPoolExecutor',
 
-    def make_queue(self) -> 'multiprocessing.queues.Queue':
-        return self.__class__._queue_type(-1)
+]):
+    @staticmethod
+    def _queue_type() -> QueueGenerator['multiprocessing.queues.Queue']:
+        return multiprocessing.queues.Queue # type: ignore[return-value]
 
     @staticmethod
     @functools.cache
-    def _try_lock_type() -> type['multiprocessing.Lock'] | None:
+    def _try_lock_type() -> LockGenerator['multiprocessing.synchronize.SemLock'] | None: # type: ignore[type-var]
         """Check if inter-process semaphore support is available.
 
         Some execution environments like AWS Lambda and Termux do not support
@@ -373,12 +408,12 @@ class _IPCExecutor(
         except ImportError:
             return None
 
-    def make_lock(self) -> 'multiprocessing.Lock':
-        return self.__class__._try_lock_type()()
-
     @staticmethod
-    def _executor_class() -> type[ProcessPoolExecutor]:
-        return ProcessPoolExecutor
+    def _executor_class() -> StandardExecutorGeneration[
+        'multiprocessing.queues.Queue',
+        'ProcessPoolExecutor',
+    ]:
+        return ProcessPoolExecutor # type: ignore[return-value]
 
     @staticmethod
     def _worker_init(
@@ -387,23 +422,18 @@ class _IPCExecutor(
         process_init(q, user_init, loglevel)
 
 
-class _ThreadedExecutor(
-    _ParallelismFrameworkExecutor[
-        'threading.Lock',
-        'queue.Queue',
-        'ThreadPoolExecutor',
-    ]
-):
+class _ThreadedExecutor(_ParallelismFrameworkExecutor[
+    'threading.Lock',           # type: ignore[type-var]
+    'queue.Queue',
+    'ThreadPoolExecutor',
+]):
     @staticmethod
-    def _queue_type() -> type['queue.Queue']:
-        return queue.Queue
-
-    def make_queue(self) -> 'queue.Queue':
-        return self.__class__._queue_type(-1)
+    def _queue_type() -> QueueGenerator['queue.Queue']:
+        return queue.Queue      # type: ignore[return-value]
 
     @staticmethod
     @functools.cache
-    def _try_lock_type() -> type['threading.Lock'] | None:
+    def _try_lock_type() -> LockGenerator['threading.Lock'] | None: # type: ignore[type-var]
         """Check if in-memory semaphore (a standard lock) is available."""
         try:
             # pylint: disable=import-outside-toplevel
@@ -413,12 +443,12 @@ class _ThreadedExecutor(
         except ImportError:
             return None
 
-    def make_lock(self) -> 'threading.Lock':
-        return self.__class__._try_lock_type()()
-
     @staticmethod
-    def _executor_class() -> type[ThreadPoolExecutor]:
-        return ThreadPoolExecutor
+    def _executor_class() -> StandardExecutorGeneration[
+        'queue.Queue',
+        'ThreadPoolExecutor'
+    ]:
+        return ThreadPoolExecutor # type: ignore[return-value]
 
     @staticmethod
     def _worker_init(q: 'queue.Queue', user_init: UserInit, loglevel: int) -> None:
@@ -431,10 +461,14 @@ class StandardExecutor:
         *args,
         impl: type[_ParallelismFrameworkExecutor],
         **kwargs,
-    ):
+    ) -> None:
         self._instance = impl(*args, **kwargs)
         # Delay until the construction of the executor to allow for any in-process pytest patching.
         self._executing_within_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST", ""))
+
+    @property
+    def pool_lock(self) -> SharedLock:
+        return self._instance.pool_lock
 
     @classmethod
     def specialize(
@@ -444,7 +478,7 @@ class StandardExecutor:
         pbar_class: type[ProgressBar] | None = None,
     ) -> Self:
         return cls(
-            impl=setup_executor(workload or WorkloadKind.MORE_MESSAGING),
+            impl=setup_executor(workload or WorkloadKind.MORE_MESSAGING), # type: ignore[arg-type]
             pbar_class=pbar_class,
         )
 
@@ -461,7 +495,7 @@ class StandardExecutor:
         if exc_val is None:
             assert exc_type is None and exc_tb is None
 
-            return super().__exit__(None, None, None)
+            return self._instance.__exit__(None, None, None)
 
         assert exc_type is not None and exc_tb is not None
 
@@ -482,7 +516,7 @@ class StandardExecutor:
         import pdb
 
         pdb.set_trace()
-        self._inner_executor.shutdown(wait=False, cancel_futures=True)
+        # self._instance._inner_executor.shutdown(wait=False, cancel_futures=True)
         # Unlike in the success case, we do not clobber the context-specific state, in case it
         # becomes needed to recover or log the failure.
         return False
@@ -490,7 +524,7 @@ class StandardExecutor:
     def make_queue(self) -> 'multiprocessing.queues.Queue | queue.Queue':
         return self._instance.make_queue()
 
-    def make_lock(self) -> 'multiprocessing.Lock | threading.Lock':
+    def make_lock(self) -> 'multiprocessing.synchronize.SemLock | threading.Lock':
         return self._instance.make_lock()
 
     def make_exe(
@@ -504,7 +538,7 @@ class StandardExecutor:
             worker_initializer=worker_initializer,
         )
 
-    def __call__(
+    def __call__[T](
         self,
         *,
         max_workers: int,
@@ -522,17 +556,6 @@ class StandardExecutor:
             task_arguments=task_arguments,
             task_finished=task_finished,
         )
-
-
-if TYPE_CHECKING:
-    assert issubclass(
-        StandardExecutor,
-        ExecutorPlatform[
-            'multiprocessing.Lock | threading.Lock',
-            'multiprocessing.queues.Queue | queue.Queue',
-            'ProcessPoolExecutor | ThreadPoolExecutor',
-        ],
-    )
 
 
 @hookimpl

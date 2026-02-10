@@ -26,7 +26,7 @@ import PIL.Image
 from pikepdf import Pdf
 
 from ocrmypdf._annots import remove_broken_goto_annotations
-from ocrmypdf._concurrent import Executor, setup_executor
+from ocrmypdf._concurrent import Executor, setup_executor, WorkloadKind
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._logging import PageNumberFilter
 from ocrmypdf._metadata import metadata_fixup
@@ -319,7 +319,7 @@ def cli_exception_handler(
 def setup_pipeline(
     options: OcrOptions,
     plugin_manager: OcrmypdfPluginManager,
-) -> Executor:
+) -> type[Executor]:
     # Any changes to options will not take effect for options that are already
     # bound to function parameters in the pipeline. (For example
     # options.input_file, options.pdf_renderer are already bound.)
@@ -336,7 +336,7 @@ def setup_pipeline(
     return executor
 
 
-def do_get_pdfinfo(pdf_path: Path, executor: Executor, options) -> PdfInfo:
+def do_get_pdfinfo(pdf_path: Path, executor: type[Executor], options) -> PdfInfo:
     # Handle pages field - it might be a string that needs conversion
     check_pages = options.pages
     if isinstance(check_pages, str):
@@ -350,7 +350,7 @@ def do_get_pdfinfo(pdf_path: Path, executor: Executor, options) -> PdfInfo:
         detailed_analysis=options.redo_ocr,
         progbar=options.progress_bar,
         max_workers=options.jobs,
-        use_threads=options.use_threads,
+        workload=WorkloadKind(options.use_threads),
         check_pages=check_pages,
     )
 
@@ -466,7 +466,7 @@ def process_page(page_context: PageContext) -> tuple[Path, Path | None, int]:
 
 
 def postprocess(
-    pdf_file: Path, context: PdfContext, executor: Executor
+    pdf_file: Path, context: PdfContext, executor: type[Executor]
 ) -> tuple[Path, Sequence[str]]:
     """Postprocess the PDF file."""
     # pdf_out = pdf_file

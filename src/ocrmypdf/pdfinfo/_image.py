@@ -7,12 +7,17 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from decimal import Decimal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import cast
 
 from pikepdf import (
     Dictionary,
     Matrix,
     Name,
     Object,
+    Page,
     Pdf,
     PdfImage,
     PdfInlineImage,
@@ -87,8 +92,8 @@ class ImageInfo:
             # itself. Some PDF writers use this to create a grayscale stencil
             # mask. For our purposes, the effective size is the size of the
             # larger component (image or smask).
-            self._width = max(smask.get(Name.Width, 0), self._width)
-            self._height = max(smask.get(Name.Height, 0), self._height)
+            self._width = max(smask.get(Name.Width, 0), self._width) # type: ignore[call-overload]
+            self._height = max(smask.get(Name.Height, 0), self._height) # type: ignore[call-overload]
         if (mask := pim.obj.get(Name.Mask, None)) is not None and isinstance(
             mask, Stream | Dictionary
         ):
@@ -96,8 +101,8 @@ class ImageInfo:
             # /Mask can be a Stream or an Array. If it's a Stream,
             # use its /Width and /Height if they are larger than the main
             # image's.
-            self._width = max(mask.get(Name.Width, 0), self._width)
-            self._height = max(mask.get(Name.Height, 0), self._height)
+            self._width = max(mask.get(Name.Width, 0), self._width) # type: ignore[call-overload]
+            self._height = max(mask.get(Name.Height, 0), self._height) # type: ignore[call-overload]
 
         # If /ImageMask is true, then this image is a stencil mask
         # (Images that draw with this stencil mask will have a reference to
@@ -114,7 +119,7 @@ class ImageInfo:
             and pim.filters[1] == '/DCTDecode'
         ):
             # Special case: FlateDecode followed by DCTDecode
-            self._enc = Encoding.flate_jpeg
+            self._enc: Encoding | None = Encoding.flate_jpeg
         else:
             try:
                 self._enc = FRIENDLY_ENCODING.get(pim.filters[0])
@@ -367,7 +372,7 @@ def _process_content_streams(
 
         # A Form XObject may provide its own matrix to map form space into
         # user space. Get this if one exists
-        form_shorthand = container.get(Name.Matrix, Matrix())
+        form_shorthand = cast(Matrix, container.get(Name.Matrix, Matrix())) # type: ignore[call-overload,arg-type]
         form_matrix = Matrix(form_shorthand)
 
         # Concatenate form matrix with CTM to ensure CTM is correct for

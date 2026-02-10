@@ -7,15 +7,17 @@ from __future__ import annotations
 
 import logging
 from contextlib import suppress
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ocrmypdf.hocrtransform import OcrElement
 
 from pikepdf import (
+    ContentStreamInstruction,
     Dictionary,
     Name,
     Operator,
@@ -173,9 +175,11 @@ def strip_invisible_text(pdf: Pdf, page: Page):
     render_mode_stack = []
     text_objects = []
 
-    for operands, operator in parse_content_stream(page, ''):
+    for inst in parse_content_stream(page, ''):
+        operands = inst.operands
+        operator = inst.operator
         if operator == Operator('Tr'):
-            render_mode = operands[0]
+            render_mode = cast(int, operands[0])
 
         if operator == Operator('q'):
             render_mode_stack.append(render_mode)
@@ -188,11 +192,12 @@ def strip_invisible_text(pdf: Pdf, page: Page):
         if not in_text_obj:
             if operator == Operator('BT'):
                 in_text_obj = True
-                text_objects.append((operands, operator))
+                text_objects.append(
+                    ContentStreamInstruction(operands, operator))
             else:
-                stream.append((operands, operator))
+                stream.append(ContentStreamInstruction(operands, operator))
         else:
-            text_objects.append((operands, operator))
+            text_objects.append(ContentStreamInstruction(operands, operator))
             if operator == Operator('ET'):
                 in_text_obj = False
                 if render_mode != 3:
@@ -327,7 +332,7 @@ class OcrGrafter:
         self.pdf_base.close()
         return self.output_file
 
-    def _parse_hocr_pages(self):
+    def _parse_hocr_pages(self) -> Iterable[Fpdf2ParsedPage]:
         """Render all pages to multi-page PDF with shared fonts, then graft."""
         from ocrmypdf.hocrtransform.hocr_parser import HocrParser
 
@@ -429,7 +434,7 @@ class OcrGrafter:
         text_contents = text_page.Contents.read_bytes()
 
         # Get the mediabox from the text page
-        mediabox = Array([float(x) for x in text_page.mediabox])  # type: ignore[misc]
+        mediabox = Array(map(float, text_page.mediabox))  # type: ignore[call-overload]
         wt = float(mediabox[2]) - float(mediabox[0])
         ht = float(mediabox[3]) - float(mediabox[1])
 
@@ -532,6 +537,7 @@ class OcrGrafter:
                 font = None
                 font_key = None
                 for f in ('/f-0-0', '/F1'):
+                    assert pdf_text_fonts is not None
                     pdf_text_font = pdf_text_fonts.get(f, None)
                     if pdf_text_font is not None:
                         font_key = Name(f)

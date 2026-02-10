@@ -214,13 +214,15 @@ def available_cpu_count() -> int:
     return 1
 
 
-def is_file_writable(test_file: os.PathLike) -> bool:
+def is_file_writable(test_file: os.PathLike | str | bytes) -> bool:
     """Intentionally racy test if target is writable.
 
     We intend to write to the output file if and only if we succeed and
     can replace it atomically. Before doing the OCR work, make sure
     the location is writable.
     """
+    if isinstance(test_file, bytes):
+        test_file = test_file.decode('utf-8')
     try:
         p = Path(test_file)
         if p.is_symlink():

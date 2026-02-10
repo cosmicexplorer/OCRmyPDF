@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from pikepdf import Pdf
 
-from ocrmypdf._concurrent import Executor
+from ocrmypdf._concurrent import Executor, WorkloadKind
 from ocrmypdf._progressbar import ProgressBar
 from ocrmypdf.exceptions import InputFileError
 from ocrmypdf.helpers import available_cpu_count, pikepdf_enable_mmap
@@ -28,7 +28,7 @@ logger = logging.getLogger()
 worker_pdf = None  # pylint: disable=invalid-name
 
 
-def _pdf_pageinfo_sync_init(pdf: Pdf, infile: Path, pdfminer_loglevel):
+def _pdf_pageinfo_sync_init(pdf: Pdf | None, infile: Path, pdfminer_loglevel):
     global worker_pdf  # pylint: disable=global-statement,invalid-name
     pikepdf_enable_mmap()
 
@@ -76,9 +76,9 @@ def _pdf_pageinfo_sync(
 
 def _pdf_pageinfo_concurrent(
     pdf,
-    executor: Executor,
+    executor: type[Executor],
     max_workers: int,
-    use_threads: bool,
+    workload: WorkloadKind,
     infile,
     progbar,
     check_pages,
@@ -102,9 +102,9 @@ def _pdf_pageinfo_concurrent(
     if n_workers == 1:
         # If we decided on only one worker, there is no point in using
         # a separate process.
-        use_threads = True
+        workload = WorkloadKind.MORE_SHARED_DATA
 
-    if use_threads and n_workers > 1:
+    if workload == WorkloadKind.MORE_SHARED_DATA and n_workers > 1:
         # If we are using threads, there is no point in using more than one
         # worker thread - they will just fight over the GIL.
         n_workers = 1
@@ -112,20 +112,20 @@ def _pdf_pageinfo_concurrent(
     # If we use a thread, we can pass the already-open Pdf for them to use
     # If we use processes, we pass a None which tells the init function to open its
     # own
-    initial_pdf = pdf if use_threads else None
+    initial_pdf = pdf if workload == WorkloadKind.MORE_SHARED_DATA else None
 
     contexts = (
         (n, initial_pdf, infile, check_pages, detailed_analysis, miner_state)
         for n in range(total)
     )
-    assert n_workers == 1 if use_threads else n_workers >= 1, "Not multithreadable"
+    assert n_workers == 1 if workload == WorkloadKind.MORE_SHARED_DATA else n_workers >= 1, "Not multithreadable"
     logger.debug(
         f"Gathering info with {n_workers} "
-        + ('thread' if use_threads else 'process')
+        + ('thread' if workload == WorkloadKind.MORE_SHARED_DATA else 'process')
         + " workers"
     )
-    executor(
-        use_threads=use_threads,
+
+    executor.specialize(workload=workload)(
         max_workers=n_workers,
         progress_kwargs=dict(
             total=total, desc="Scanning contents", unit='page', disable=not progbar

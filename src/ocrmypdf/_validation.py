@@ -9,7 +9,8 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Set, Sequence
+from typing import BinaryIO
 from pathlib import Path
 from shutil import copyfileobj
 
@@ -47,7 +48,7 @@ def check_platform() -> None:
 
 
 def check_options_languages(
-    options: OcrOptions, ocr_engine_languages: list[str]
+    options: OcrOptions, ocr_engine_languages: Set[str]
 ) -> None:
     # Check for blocked languages first, before checking if they're installed
     DENIED_LANGUAGES = {'equ', 'osd'}
@@ -63,7 +64,7 @@ def check_options_languages(
     if not ocr_engine_languages:
         return
 
-    missing_languages = set(options.languages) - set(ocr_engine_languages)
+    missing_languages = set(options.languages) - ocr_engine_languages
     if missing_languages:
         lang_text = '\n'.join(lang for lang in missing_languages)
         msg = (
@@ -91,6 +92,7 @@ def check_options_sidecar(options: OcrOptions) -> None:
             raise BadArgsError(
                 "--sidecar filename needed when output file is /dev/null or NUL."
             )
+        assert isinstance(options.output_file, str)
         options.sidecar = options.output_file + '.txt'
     if options.sidecar == options.input_file or options.sidecar == options.output_file:
         raise BadArgsError(
@@ -139,7 +141,7 @@ def _check_plugin_options(
     # Finally, run comprehensive validation using the coordinator
     from ocrmypdf._validation_coordinator import ValidationCoordinator
 
-    coordinator = ValidationCoordinator(plugin_manager)
+    coordinator = ValidationCoordinator(plugin_manager.pluggy)
     coordinator.validate_all_options(options)
 
 
@@ -170,15 +172,17 @@ def create_input_file(options: OcrOptions, work_folder: Path) -> tuple[Path, str
         log.info('reading file from input stream')
         target = work_folder / 'stream'
         with open(target, 'wb') as stream_buffer:
+            assert isinstance(options.input_file, BinaryIO)
             copyfileobj(options.input_file, stream_buffer)
         return target, "stream"
     else:
         try:
             target = work_folder / 'origin'
+            assert isinstance(options.input_file, Path)
             safe_symlink(options.input_file, target)
             return target, os.fspath(options.input_file)
         except FileNotFoundError as e:
-            msg = f"File not found - {options.input_file}"
+            msg = f"File not found - {options.input_file!r}"
             if running_in_docker():  # pragma: no cover
                 msg += (
                     "\nDocker cannot access your working directory unless you "
@@ -214,7 +218,7 @@ def check_requested_output_file(options: OcrOptions) -> None:
             raise OutputFileAccessError("Output stream is not writable")
     elif not is_file_writable(options.output_file):
         raise OutputFileAccessError(
-            f"Output file location ({options.output_file}) is not a writable file."
+            f"Output file location ({options.output_file!r}) is not a writable file."
         )
 
 

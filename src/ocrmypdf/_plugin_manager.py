@@ -31,6 +31,8 @@ if TYPE_CHECKING:
     from ocrmypdf._jobcontext import PageContext
     from ocrmypdf.pdfinfo import PdfInfo
 
+    from pluggy import PluginManager
+
 
 class OcrmypdfPluginManager:
     """Type-safe wrapper around pluggy.PluginManager.
@@ -56,8 +58,8 @@ class OcrmypdfPluginManager:
         self._setup_plugins()
 
     @property
-    def pluggy(self) -> pluggy.PluginManager:
-        """Access the underlying pluggy.PluginManager for advanced use cases.
+    def pluggy(self) -> PluginManager:
+        """Access the underlying PluginManager for advanced use cases.
 
         This is useful for plugins that need to call methods like set_blocked()
         in their initialize hook.
@@ -224,7 +226,7 @@ class OcrmypdfPluginManager:
         input_pdf: Path,
         output_pdf: Path,
         context: PdfContext,
-        executor: Executor,
+        executor: type[Executor],
         linearize: bool,
     ) -> tuple[Path, Sequence[str]]:
         """Optimize a PDF after OCR processing."""
@@ -245,11 +247,11 @@ class OcrmypdfPluginManager:
 
     # --- non-firstresult hooks ---
 
-    def initialize(self, *, plugin_manager: pluggy.PluginManager) -> list[None]:
+    def initialize(self, *, plugin_manager: PluginManager) -> list[None]:
         """Called when plugins are first loaded.
 
         Args:
-            plugin_manager: The underlying pluggy.PluginManager, allowing
+            plugin_manager: The underlying PluginManager, allowing
                 plugins to call methods like set_blocked().
         """
         return self._pm.hook.initialize(plugin_manager=plugin_manager)

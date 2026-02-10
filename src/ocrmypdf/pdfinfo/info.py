@@ -13,12 +13,12 @@ from contextlib import nullcontext
 from decimal import Decimal
 from os import PathLike
 from pathlib import Path
-from typing import NamedTuple
+from typing import cast, NamedTuple
 
 from pdfminer.layout import LTPage, LTTextBox
 from pikepdf import Name, Page, Pdf
 
-from ocrmypdf._concurrent import Executor, SerialExecutor
+from ocrmypdf._concurrent import Executor, WorkloadKind, SerialExecutor
 from ocrmypdf.exceptions import EncryptedPdfError
 from ocrmypdf.helpers import Resolution
 from ocrmypdf.pdfinfo._contentstream import TextboxInfo, TextMarker, VectorMarker
@@ -140,19 +140,20 @@ class PageInfo:
         miner_state: PdfMinerState | None,
     ):
         page: Page = pdf.pages[pageno]
-        mediabox = [Decimal(d) for d in page.mediabox.as_list()]
+        mediabox = [Decimal(d) for d in page.mediabox.as_list()] # type: ignore[arg-type]
         width_pt = mediabox[2] - mediabox[0]
         height_pt = mediabox[3] - mediabox[1]
 
-        self._artbox = [float(d) for d in page.artbox.as_list()]
-        self._bleedbox = [float(d) for d in page.bleedbox.as_list()]
-        self._cropbox = [float(d) for d in page.cropbox.as_list()]
-        self._mediabox = [float(d) for d in page.mediabox.as_list()]
-        self._trimbox = [float(d) for d in page.trimbox.as_list()]
+        self._artbox = tuple(float(d) for d in page.artbox.as_list())
+        self._bleedbox = tuple(float(d) for d in page.bleedbox.as_list())
+        self._cropbox = tuple(float(d) for d in page.cropbox.as_list())
+        self._mediabox = tuple(float(d) for d in page.mediabox.as_list())
+        self._trimbox = tuple(float(d) for d in page.trimbox.as_list())
 
         check_this_page = pageno in check_pages
 
         if check_this_page and detailed_analysis:
+            assert miner_state is not None
             page_analysis = miner_state.get_page_analysis(pageno)
             if page_analysis is not None:
                 self._textboxes = list(
@@ -167,7 +168,7 @@ class PageInfo:
             self._textboxes = []
             self._has_text = None  # i.e. "no information"
 
-        userunit = page.get(Name.UserUnit, Decimal(1.0))
+        userunit = cast(Decimal, page.get(Name.UserUnit, default=Decimal(1.0))) # type: ignore[arg-type]
         if not isinstance(userunit, Decimal):
             userunit = Decimal(userunit)
         self._userunit = userunit
@@ -182,7 +183,7 @@ class PageInfo:
             self._has_text = False
             self._images = []
             for info in _process_content_streams(
-                pdf=pdf, container=page, shorthand=userunit_shorthand
+                pdf=pdf, container=page.obj, shorthand=userunit_shorthand
             ):
                 if isinstance(info, VectorMarker):
                     self._has_vector = True
@@ -270,27 +271,32 @@ class PageInfo:
     @property
     def cropbox(self) -> FloatRect:
         """Return cropbox of page in PDF coordinates."""
-        return self._cropbox
+        assert len(self._cropbox) == 4
+        return cast(FloatRect, self._cropbox)
 
     @property
     def mediabox(self) -> FloatRect:
         """Return mediabox of page in PDF coordinates."""
-        return self._mediabox
+        assert len(self._mediabox) == 4
+        return cast(FloatRect, self._mediabox)
 
     @property
     def trimbox(self) -> FloatRect:
         """Return trimbox of page in PDF coordinates."""
-        return self._trimbox
+        assert len(self._trimbox) == 4
+        return cast(FloatRect, self._trimbox)
 
     @property
     def artbox(self) -> FloatRect:
         """Return artbox of page in PDF coordinates."""
-        return self._artbox
+        assert len(self._artbox) == 4
+        return cast(FloatRect, self._artbox)
 
     @property
     def bleedbox(self) -> FloatRect:
         """Return bleedbox of page in PDF coordinates."""
-        return self._bleedbox
+        assert len(self._bleedbox) == 4
+        return cast(FloatRect, self._bleedbox)
 
     @property
     def images(self) -> list[ImageInfo]:
@@ -385,7 +391,7 @@ class PageInfo:
         )
 
 
-DEFAULT_EXECUTOR = SerialExecutor()
+DEFAULT_EXECUTOR = SerialExecutor
 
 
 class PdfInfo:
@@ -406,9 +412,9 @@ class PdfInfo:
         detailed_analysis: bool = False,
         progbar: bool = False,
         max_workers: int | None = None,
-        use_threads: bool = True,
+        workload: WorkloadKind = WorkloadKind.MORE_SHARED_DATA,
         check_pages=None,
-        executor: Executor = DEFAULT_EXECUTOR,
+        executor: type[Executor] = DEFAULT_EXECUTOR,
     ):
         """Initialize."""
         self._infile = infile
@@ -418,7 +424,7 @@ class PdfInfo:
         with Pdf.open(infile) as pdf:
             if pdf.is_encrypted:
                 raise EncryptedPdfError()  # Triggered by encryption with empty passwd
-            pscript5_mode = str(pdf.docinfo.get(Name.Creator, "")).startswith(
+            pscript5_mode = str(pdf.docinfo.get(Name.Creator, "")).startswith( # type: ignore[call-overload]
                 'PScript5'
             )
             self._miner_state = (
@@ -430,30 +436,30 @@ class PdfInfo:
                 self._pages = _pdf_pageinfo_concurrent(
                     pdf,
                     executor,
-                    max_workers,
-                    use_threads,
+                    max_workers or 1,
+                    workload,
                     infile,
                     progbar,
                     check_pages=check_pages,
                     detailed_analysis=detailed_analysis,
                     miner_state=miner_state,
                 )
-            self._needs_rendering = pdf.Root.get(Name.NeedsRendering, False)
+            self._needs_rendering = pdf.Root.get(Name.NeedsRendering, False) # type: ignore[call-overload]
             if Name.AcroForm in pdf.Root:
                 if (
-                    len(pdf.Root.AcroForm.get(Name.Fields, [])) > 0
+                    len(pdf.Root.AcroForm.get(Name.Fields, [])) > 0 # type: ignore[call-overload]
                     or Name.XFA in pdf.Root.AcroForm
                 ):
                     self._has_acroform = True
-                self._has_signature = bool(pdf.Root.AcroForm.get(Name.SigFlags, 0) & 1)
+                self._has_signature = bool(pdf.Root.AcroForm.get(Name.SigFlags, 0) & 1) # type: ignore[call-overload]
             self._is_tagged = bool(
-                pdf.Root.get(Name.MarkInfo, {}).get(Name.Marked, False)
+                pdf.Root.get(Name.MarkInfo, {}).get(Name.Marked, False) # type: ignore[call-overload]
             )
 
     @property
     def pages(self) -> list[PageInfo | None]:
         """Return list of PageInfo objects, one per page in the PDF."""
-        return self._pages
+        return list(self._pages)
 
     @property
     def min_version(self) -> str:

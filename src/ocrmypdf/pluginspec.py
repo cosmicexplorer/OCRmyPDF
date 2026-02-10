@@ -148,7 +148,7 @@ def check_options(options: OcrOptions) -> None:
 
 
 @hookspec(firstresult=True)
-def get_executor(progressbar_class: type[ProgressBar]) -> Executor:  # type: ignore[return-value]
+def get_executor(progressbar_class: type[ProgressBar]) -> type[Executor]: # type: ignore[return-value]
     """Called to obtain an object that manages parallel execution.
 
     This may be used to replace OCRmyPDF's default parallel execution system
@@ -619,7 +619,7 @@ def optimize_pdf(
     input_pdf: Path,
     output_pdf: Path,
     context: PdfContext,
-    executor: Executor,
+    executor: type[Executor],
     linearize: bool,
 ) -> tuple[Path, Sequence[str]]:  # type: ignore[return-value]
     """Optimize a PDF after image, OCR and metadata processing.

@@ -208,7 +208,7 @@ def optimize_pdf(
     input_pdf: Path,
     output_pdf: Path,
     context: PdfContext,
-    executor: Executor,
+    executor: type[Executor],
     linearize: bool,
 ) -> tuple[Path, Sequence[str]]:
     save_settings = dict(
